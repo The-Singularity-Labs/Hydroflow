@@ -1,4 +1,4 @@
-package hydrowflow
+package hydroflow
 
 import (
 	"fmt"
@@ -26,31 +26,38 @@ all: {{.Sinks}}
 	mkdir -p {{.TargetDir}}
 
 {{range $rule := .Rules}}
-{{.TargetDir}}/{{$rule}}: {{.TargetDir}} {{range $prereq := $rule.Prerequisites}}{{.TargetDir}}/{{$prereq}}{{.end}}
-	{{range $command := $rule.Recipe}}
-	{{$command}}
-	{{end}}
-	{{if not $rule.UpdatesTarget}}
-	touch {{.TargetDir}}/{{$rule}}
+$(TARGET_DIR)/{{$rule.Target}}: $(TARGET_DIR) {{range $prereq := $rule.Prerequisites}}$(TARGET_DIR)/{{$prereq}} {{end}} {{range $command := $rule.EscapedRecipe}}
+	{{$command}}{{end}}{{if not $rule.UpdatesTarget}}
+	touch {{$.TargetDir}}/{{$rule.Target}}
 	{{end}}
 {{end}}
 `
 
-type Hydrowflow struct {
-	Name string `json:"name"`
-	Author string `json:"author"`
-	TargetDir string `json:"target_directory"`
-	Rules []Rule  `json:"rules"`
+type Hydroflow struct {
+	Name string `yaml:"name"`
+	Author string `yaml:"author"`
+	TargetDir string `yaml:"target_directory"`
+	Rules []Rule  `yaml:"rules"`
 } 
 
 type Rule struct {
-	Target string `json:"target"`
-	Recipe []string `json:"recipe"`
-	UpdatesTarget bool `json:"updates_target"`
-	Prerequisites []string `json:"prerequisites"`
+	Target string `yaml:"target"`
+	Recipe []string `yaml:"recipe"`
+	UpdatesTarget bool `yaml:"updates_target"`
+	Prerequisites []string `yaml:"prerequisites"`
 }
 
-func (h Hydrowflow) Sinks() string {
+func (r Rule) EscapedRecipe() []string {
+	results := []string{}
+	for _, command := range r.Recipe {
+		// make needs $ escaped with $$
+		// https://til.hashrocket.com/posts/k3kjqxtppx-escape-dollar-sign-on-makefiles
+		results = append(results, strings.ReplaceAll(command, "$", "$$"))
+	}
+	return results
+}
+
+func (h Hydroflow) Sinks() string {
 	dependencyCounts := map[string]int{}
 	for _, rule := range h.Rules {
 		if _, exists := dependencyCounts[rule.Target]; !exists {
@@ -65,17 +72,18 @@ func (h Hydrowflow) Sinks() string {
 		}
 
 	}
+	fmt.Println(dependencyCounts)
 
 	results := []string{}
 	for target, cnt := range dependencyCounts {
 		if cnt == 0 {
-			results = append(results, target)
+			results = append(results, fmt.Sprintf("$(TARGET_DIR)/%s", target))
 		}
 	}
 	return strings.Join(results, " ")
 }
 
-func (h Hydrowflow) Validate() error {
+func (h Hydroflow) Validate() error {
 	// TODO:
 	// validate targets have no spaces or weird symbols
 	// validate commands don't have unescaped newlines
@@ -83,13 +91,16 @@ func (h Hydrowflow) Validate() error {
 	return nil
 }
 
-func (h Hydrowflow) GenerateMakefile() (string, error) {
+func (h Hydroflow) GenerateMakefile() (string, error) {
     makefileTemplate, err := template.New("makefile_template").Parse(MakefileTemplate)
     if err != nil {
         return "", fmt.Errorf("error parsing template: %w", err)
     }
 	var results bytes.Buffer
-	makefileTemplate.Execute(&results, h)
+	err = makefileTemplate.Execute(&results, h)
+	if err != nil {
+		return "", fmt.Errorf("Error executing template %w: ", err)
+	}
 	return results.String(), nil
 }
 

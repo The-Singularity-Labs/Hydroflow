@@ -12,7 +12,10 @@ endif
 
 .PHONY: app
 
-all: app binary
+all: app binary 
+
+clean:
+	rm -f .build/*
 
 app: $(HYDROFLOW_BUILDIR)/wasm
 	python -m http.server 8000 --directory app
@@ -22,5 +25,5 @@ $(HYDROFLOW_BUILDIR)/hydrowflow.wasm:
 
 binary: $(HYDROFLOW_BUILDIR)/binary
 
-$(HYDROFLOW_BUILDIR)/binary:
+$(HYDROFLOW_BUILDIR)/binary: clean
 	go build -o $(HYDROFLOW_BUILDIR)/hydrowflow cmd/cli/main.go 

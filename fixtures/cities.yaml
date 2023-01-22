@@ -4,21 +4,31 @@ target_directory: "/tmp"
 rules:
   - target: cities.csv
     updates_target: true
-    prerequisites: []
+    prerequisites:
     recipe:
-      - "wget -O /tmp/cities.csv https://people.sc.fsu.edu/~jburkardt/data/csv/cities.csv"
+      - "wget -O /tmp/cities.csv https://raw.githubusercontent.com/icyrockcom/country-capitals/master/data/country-list.csv"
+  - target: cities.db
+    updates_target: true
+    prerequisites: 
+      - cities.csv
+    recipe:
+      - "rm -rf /tmp/cities.db && sqlite3 /tmp/cities.db -cmd '.mode csv' '.import /tmp/cities.csv cities'"
   - target: calculate_count.md
     updates_target: true
-    prequisites: ["cities.csv"]
+    prerequisites: 
+      - cities.db
     recipe:
-      - "sqlite3 :memory: -cmd '.mode csv' -cmd '.import /tmp/cities.csv cities' -cmd '.mode markdown' 'SELECT COUNT(*) FROM cities' > /tmp/calculate_count.md"
+      - "out=$(sqlite3 /tmp/cities.db -header -csv 'SELECT COUNT(*) FROM cities') && echo \"$out\"  > /tmp/calculate_count.md"
   - target: preview.md
     updates_target: true
-    prequisites: ["cities.csv"]
+    prerequisites: 
+      - cities.db
     recipe:
-      - "sqlite3 :memory: -cmd '.mode csv' -cmd '.import /tmp/cities.csv cities' -cmd '.mode markdown' 'SELECT * FROM cities LIMIT 5' > /tmp/preview.md"
-  - target: preview.md
-    prequisites: ["calculate_count.md", "preview.md"]
+      - "out=$(sqlite3 /tmp/cities.db -header -csv 'SELECT * FROM cities LIMIT 5') && echo \"$out\" > /tmp/preview.md"
+  - target: show.md
+    prerequisites: 
+      - calculate_count.md
+      - preview.md
     recipe:
       - cat /tmp/calculate_count.md
       - cat /tmp/preview.md

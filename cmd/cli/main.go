@@ -75,12 +75,12 @@ func main() {
 			Short: "c", Long: "config",
 			Description: "String of JSON or YAML representing Hydroflow config",
 			Type:        argument.String,
-			Required:	 true,
+			Required:	 false,
 		}, {
 			Short: "o", Long: "outfile",
 			Description: "Filepath where file will be written",
 			Type:        argument.String,
-			Required:	 true,
+			Required:	 false,
 		}},
 	}
 	app.Exec(os.Args)
