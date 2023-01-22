@@ -17,13 +17,15 @@ all: app binary
 clean:
 	rm -f .build/*
 
-app: $(HYDROFLOW_BUILDIR)/wasm
+app: wasm
 	python -m http.server 8000 --directory app
-
-$(HYDROFLOW_BUILDIR)/hydrowflow.wasm:
-	GOOS=js GOARCH=wasm go build -o $(HYDROFLOW_BUILDIR)/hydrowflow.wasm cmd/wasm/main.go 
 
 binary: $(HYDROFLOW_BUILDIR)/binary
 
+wasm: $(HYDROFLOW_BUILDIR)/hydrowflow.wasm
+
 $(HYDROFLOW_BUILDIR)/binary: clean
 	go build -o $(HYDROFLOW_BUILDIR)/hydrowflow cmd/cli/main.go 
+
+$(HYDROFLOW_BUILDIR)/hydrowflow.wasm:
+	GOOS=js GOARCH=wasm go build -o $(HYDROFLOW_BUILDIR)/hydrowflow.wasm cmd/wasm/main.go 
